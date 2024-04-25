@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Chat UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .chat-container {
+            max-width: 400px;
+            margin: 50px auto;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+        }
+
+        .message {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+        }
+
+        .message.sent {
+            background-color: #dcf8c6;
+            text-align: right;
+        }
+
+        .message.received {
+            background-color: #ffffff;
+            text-align: left;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            max-width: 70%;
+            word-wrap: break-word;
+            padding: 5px;
+        }
+
+        .message-input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            border: none;
+            border-top: 1px solid #ccc;
+            outline: none;
+            font-size: 16px;
+        }
+
+        .send-button {
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 0;
+            cursor: pointer;
+        }
+
+        .send-button:hover {
+            background-color: #45a049;
+        }
+
+        .send-button.disable {
+            width: 100%;
+            background-color: gray;
+            color: white;
+            border: none;
+            padding: 10px 0;
+            cursor: pointer;
+        }
+
+        .send-button.disable:hover {
+            background-color: gray;
+        }
+    </style>
+</head>
+<body>
+<div class="chat-container">
+    <div class="chat-messages" id="chat-messages">
+    </div>
+    <input class="message-input" id="message-input" placeholder="Type your message..." type="text">
+    <button class="send-button" id="sendBtn" onclick="sendMsg()">Send</button>
+</div>
+
+<script type="text/javascript">
+    const myMsg = document.getElementById("message-input");
+    const chatMsg = document.getElementById("chat-messages");
+    const sendBtn = document.getElementById("sendBtn");
+
+    function eventClose(evtSource) {
+        evtSource.close();
+        toggleSendBtn();
+    }
+
+    function toggleSendBtn() {
+        if (sendBtn.onclick == null) {
+            sendBtn.onclick = sendMsg;
+            sendBtn.classList.toggle("disable")
+        } else {
+            sendBtn.onclick = null;
+            sendBtn.classList.toggle("disable")
+        }
+    }
+
+    function addMsgBox(isSent, msg) {
+        const msgBox = document.createElement("div");
+            msgBox.classList.add("message");
+            msgBox.classList.add(isSent ? "sent" : "received");
+            msgBox.innerHTML = `
+              <span class="message-text" id="msg">${msg}</span>
+            `;
+        chatMsg.appendChild(msgBox);
+        return msgBox;
+    }
+
+    function sendMsg() {
+        if (myMsg.value.replaceAll(" ", "") != "") {
+            addMsgBox(true, myMsg.value)
+            toggleSendBtn();
+            const evtSource = new EventSource("/api/chat/stream/generate/"+myMsg.value);
+            const receivedMsg = addMsgBox(false, "llama3: ");
+            myMsg.value = "";
+
+            let timeOut = null;
+
+            evtSource.onmessage = (e) => {
+                clearTimeout(timeOut);
+                timeOut = setTimeout(()=>eventClose(evtSource), 5000);
+                const msgBox = receivedMsg.children.namedItem("msg");
+                const data = JSON.parse(e.data);
+                msgBox.innerText += data.result.output.content;
+                if (data.result.metadata.finishReason != null) {
+                    eventClose(evtSource);
+                }
+            }
+        }
+    }
+</script>
+</body>
+</html>
