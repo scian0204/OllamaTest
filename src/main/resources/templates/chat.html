@@ -138,6 +138,7 @@
                 const data = JSON.parse(e.data);
                 msgBox.innerText += data.result.output.content;
                 if (data.result.metadata.finishReason != null) {
+                    clearTimeout(timeOut);
                     eventClose(evtSource);
                 }
             }
