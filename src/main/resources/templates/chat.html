@@ -1,86 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
     <title>Chat UI</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-
-        .chat-container {
-            max-width: 400px;
-            margin: 50px auto;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .chat-messages {
-            padding: 10px;
-            height: 300px;
-            overflow-y: scroll;
-        }
-
-        .message {
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-        }
-
-        .message.sent {
-            background-color: #dcf8c6;
-            text-align: right;
-        }
-
-        .message.received {
-            background-color: #ffffff;
-            text-align: left;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            max-width: 70%;
-            word-wrap: break-word;
-            padding: 5px;
-        }
-
-        .message-input {
-            width: calc(100% - 20px);
-            padding: 10px;
-            border: none;
-            border-top: 1px solid #ccc;
-            outline: none;
-            font-size: 16px;
-        }
-
-        .send-button {
-            width: 100%;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 0;
-            cursor: pointer;
-        }
-
-        .send-button:hover {
-            background-color: #45a049;
-        }
-
-        .send-button.disable {
-            width: 100%;
-            background-color: gray;
-            color: white;
-            border: none;
-            padding: 10px 0;
-            cursor: pointer;
-        }
-
-        .send-button.disable:hover {
-            background-color: gray;
-        }
-    </style>
+    <link rel="stylesheet" th:href="@{/css/chat.css}">
 
     <!-- github-markdown-light -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown-light.css" integrity="sha512-n5zPz6LZB0QV1eraRj4OOxRbsV7a12eAGfFcrJ4bBFxxAwwYDp542z5M0w24tKPEhKk2QzjjIpR5hpOjJtGGoA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -90,15 +14,25 @@
 </head>
 <body>
 <div class="chat-container">
-    <div class="chat-messages" id="chat-messages">
+    <div class="chat-box" id="chat-box">
     </div>
-    <input class="message-input" id="message-input" placeholder="Type your message..." type="text">
-    <button class="send-button" id="sendBtn" onclick="sendMsg()">Send</button>
+    <div class="input-area">
+        <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
+        <button id="sendBtn" onclick="sendMsg()">Send</button>
+    </div>
 </div>
 
 <script type="text/javascript">
+    const textarea = document.querySelector('.input-area textarea');
+    textarea.addEventListener('input', autoResize, false);
+
+    function autoResize() {
+        this.style.height = 'auto';
+        this.style.height = this.scrollHeight + 'px';
+    }
+
     const myMsg = document.getElementById("message-input");
-    const chatMsg = document.getElementById("chat-messages");
+    const chatMsg = document.getElementById("chat-box");
     const sendBtn = document.getElementById("sendBtn");
 
     function eventClose(evtSource) {
@@ -118,11 +52,9 @@
 
     function addMsgBox(isSent, msg) {
         const msgBox = document.createElement("div");
-            msgBox.classList.add("message");
+            msgBox.classList.add("chat-message");
             msgBox.classList.add(isSent ? "sent" : "received");
-            msgBox.innerHTML = `
-              <span class="message-text" id="msg">${msg}</span>
-            `;
+            msgBox.innerText = msg
         chatMsg.appendChild(msgBox);
         return msgBox;
     }
@@ -153,7 +85,7 @@
                     eventClose(evtSource);
                     msgStr = "";
                 }, 5000);
-                const msgBox = receivedMsg.children.namedItem("msg");
+                const msgBox = receivedMsg;
                 const data = JSON.parse(e.data);
                 msgStr += converTag(data.result.output.content);
                 msgBox.innerHTML = `<md-block>${msgStr}</md-block>`;
