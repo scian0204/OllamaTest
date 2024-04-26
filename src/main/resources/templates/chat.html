@@ -81,6 +81,12 @@
             background-color: gray;
         }
     </style>
+
+    <!-- github-markdown-light -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown-light.css" integrity="sha512-n5zPz6LZB0QV1eraRj4OOxRbsV7a12eAGfFcrJ4bBFxxAwwYDp542z5M0w24tKPEhKk2QzjjIpR5hpOjJtGGoA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- prism code theme -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/hi098123/prism-for-tistory/prism.css">
+    <script type="module" src="https://md-block.verou.me/md-block.js"></script>
 </head>
 <body>
 <div class="chat-container">
@@ -121,25 +127,40 @@
         return msgBox;
     }
 
+    function converTag(str) {
+        if(str !== undefined && str !== null && str !== '') {
+            str = String(str);
+            str = str.replaceAll(">", "&gt;");
+            str = str.replaceAll("<", "&lt;");
+        }
+        return str;
+    }
+
     function sendMsg() {
         if (myMsg.value.replaceAll(" ", "") != "") {
             addMsgBox(true, myMsg.value)
             toggleSendBtn();
             const evtSource = new EventSource("/api/chat/stream/generate/"+myMsg.value);
-            const receivedMsg = addMsgBox(false, "llama3: ");
+            const receivedMsg = addMsgBox(false, "Llama will respond soon...");
             myMsg.value = "";
 
             let timeOut = null;
+            let msgStr = "";
 
             evtSource.onmessage = (e) => {
                 clearTimeout(timeOut);
-                timeOut = setTimeout(()=>eventClose(evtSource), 5000);
+                timeOut = setTimeout(()=> {
+                    eventClose(evtSource);
+                    msgStr = "";
+                }, 5000);
                 const msgBox = receivedMsg.children.namedItem("msg");
                 const data = JSON.parse(e.data);
-                msgBox.innerText += data.result.output.content;
+                msgStr += converTag(data.result.output.content);
+                msgBox.innerHTML = `<md-block>${msgStr}</md-block>`;
                 if (data.result.metadata.finishReason != null) {
                     clearTimeout(timeOut);
                     eventClose(evtSource);
+                    msgStr = "";
                 }
             }
         }
