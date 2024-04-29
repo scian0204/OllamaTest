@@ -6,12 +6,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.OllamaChatClient;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
-import java.time.Duration;
 import java.util.stream.Collectors;
 
 @RestController
@@ -20,8 +18,7 @@ import java.util.stream.Collectors;
 public class ChatController {
     final private Sinks.Many<ChatResponse> chatSink = Sinks.many().multicast().onBackpressureBuffer();
 
-    @Autowired
-    OllamaChatClient chatClient;
+    final private OllamaChatClient chatClient;
 
     @PostMapping("/generate")
     public Flux<ChatResponse> generate(@RequestBody ChatDto chatDto) {
