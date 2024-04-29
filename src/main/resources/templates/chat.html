@@ -16,6 +16,14 @@
 <div class="chat-container">
     <div class="chat-box" id="chat-box">
     </div>
+    <div>
+        <label>
+            <input type="checkbox" id="saveLog" />대화 기억하기
+        </label>
+        <label>
+            <input type="checkbox" id="resKor" />한글로 답변받기
+        </label>
+    </div>
     <div class="input-area">
         <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
         <button id="sendBtn" onclick="sendMsg()">Send</button>
@@ -34,9 +42,14 @@
     const myMsg = document.getElementById("message-input");
     const chatMsg = document.getElementById("chat-box");
     const sendBtn = document.getElementById("sendBtn");
+    const saveLog = document.getElementById("saveLog");
+    const resKor = document.getElementById("resKor");
+    const logList = [];
+    let evtSource = new EventSource(`/api/chat/stream`);
 
-    function eventClose(evtSource) {
+    function eventClose() {
         evtSource.close();
+        evtSource = new EventSource(`/api/chat/stream`);
         toggleSendBtn();
     }
 
@@ -52,9 +65,9 @@
 
     function addMsgBox(isSent, msg) {
         const msgBox = document.createElement("div");
-            msgBox.classList.add("chat-message");
-            msgBox.classList.add(isSent ? "sent" : "received");
-            msgBox.innerText = msg
+        msgBox.classList.add("chat-message");
+        msgBox.classList.add(isSent ? "sent" : "received");
+        msgBox.innerText = msg
         chatMsg.appendChild(msgBox);
         return msgBox;
     }
@@ -68,11 +81,24 @@
         return str;
     }
 
-    function sendMsg() {
+    async function sendMsg() {
         if (myMsg.value.replaceAll(" ", "") != "") {
+            logList.push({
+                messageType: "user",
+                content: myMsg.value,
+            });
             addMsgBox(true, myMsg.value)
             toggleSendBtn();
-            const evtSource = new EventSource("/api/chat/stream/generate/"+myMsg.value);
+
+            fetch('/api/chat/generate', {
+                method: "POST",
+                body: JSON.stringify({
+                    chatObjectList: logList,
+                }),
+                headers: {
+                    "Content-Type": "application/json"
+                },
+            })
             const receivedMsg = addMsgBox(false, "Llama will respond soon...");
             myMsg.value = "";
 
@@ -83,6 +109,10 @@
                 clearTimeout(timeOut);
                 timeOut = setTimeout(()=> {
                     eventClose(evtSource);
+                    logList.push({
+                        messageType: "assistant",
+                        content: msgStr,
+                    });
                     msgStr = "";
                 }, 5000);
                 const msgBox = receivedMsg;
@@ -92,6 +122,10 @@
                 if (data.result.metadata.finishReason != null) {
                     clearTimeout(timeOut);
                     eventClose(evtSource);
+                    logList.push({
+                        messageType: "assistant",
+                        content: msgStr,
+                    });
                     msgStr = "";
                 }
             }

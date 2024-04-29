@@ -1,34 +1,39 @@
 package com.example.ollamatest.controller;
 
+import com.example.ollamatest.dto.ChatDto;
+import com.example.ollamatest.dto.CustomMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.ChatResponse;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.ollama.OllamaChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
-import java.util.Map;
+import java.time.Duration;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
 public class ChatController {
+    final private Sinks.Many<ChatResponse> chatSink = Sinks.many().multicast().onBackpressureBuffer();
+
     @Autowired
     OllamaChatClient chatClient;
 
-    @GetMapping("/generate/{message}")
-    public Map generate(@PathVariable("message") String message) {
-        return Map.of("generation", chatClient.call(message));
+    @PostMapping("/generate")
+    public Flux<ChatResponse> generate(@RequestBody ChatDto chatDto) {
+        Prompt prompt = new Prompt(chatDto.getChatObjectList().stream().map(CustomMessage::new).collect(Collectors.toList()));
+        return chatClient.stream(prompt).doOnNext(chatSink::tryEmitNext);
     }
 
-    @GetMapping("/stream/generate/{message}")
-    public Flux<ChatResponse> generateStream(@PathVariable("message") String message) {
-        Prompt prompt = new Prompt(new UserMessage(message));
-        return chatClient.stream(prompt);
+    @GetMapping("/stream")
+    public Flux<ChatResponse> generateStream() {
+        return chatSink.asFlux()
+                .doOnCancel(() -> {
+                    chatSink.asFlux().blockLast();
+                });
     }
 }
