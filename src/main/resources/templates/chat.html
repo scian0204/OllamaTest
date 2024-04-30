@@ -44,7 +44,12 @@
     const sendBtn = document.getElementById("sendBtn");
     const saveLog = document.getElementById("saveLog");
     const resKor = document.getElementById("resKor");
+    const useKoreanObj = makeLog("system", "Always answer in Korean using Hangul");
     let logList = [];
+
+    function makeLog(messageType, content) {
+        return {messageType, content}
+    }
 
     function eventClose() {
         toggleSendBtn();
@@ -69,7 +74,7 @@
         return msgBox;
     }
 
-    function converTag(str) {
+    function convertTag(str) {
         if(str !== undefined && str !== null && str !== '') {
             str = String(str);
             str = str.replaceAll(">", "&gt;");
@@ -83,10 +88,7 @@
             if (!saveLog.checked) {
                 logList = [];
             }
-            logList.push({
-                messageType: "user",
-                content: myMsg.value,
-            });
+            logList.push(makeLog("user", myMsg.value));
 
             addMsgBox(true, myMsg.value)
             const receivedMsg = addMsgBox(false, "Llama will respond soon...");
@@ -97,7 +99,7 @@
             const response = await fetch('/api/chat/generate', {
                 method: "POST",
                 body: JSON.stringify({
-                    chatObjectList: logList,
+                    chatObjectList: resKor.checked ? [useKoreanObj, ...logList] : logList,
                 }),
                 headers: {
                     "Content-Type": "application/json"
@@ -109,16 +111,20 @@
             const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
             let dataBuffer = '';
             let index = 0;
+            let timeout = null;
 
             while(true) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => {
+                    alert("응답이 없어 강제종료 함");
+                    reader.cancel();
+                }, 10000)
                 const { done, value } = await reader.read();
                 if (done) {
+                    clearTimeout(timeout);
                     eventClose();
                     if (saveLog.checked) {
-                        logList.push({
-                            messageType: "assistant",
-                            content: msgStr,
-                        });
+                        logList.push(makeLog('assistant', msgStr));
                     }
                     dataBuffer = '';
                     msgStr = '';
@@ -128,13 +134,14 @@
                 const chunk = dataBuffer.split("\n\n")
                 if (chunk.length > index + 2) {
                     const text = JSON.parse(`{${chunk[index++].replace("data:", '"data":')}}`).data.result.output.content;
-                    msgStr += converTag(text);
+                    msgStr += convertTag(text);
                     receivedMsg.innerHTML = `<md-block>${msgStr}</md-block>`;
                 }
             }
             if (!saveLog.checked) {
                 logList = [];
             }
+            console.log("done")
         }
     }
 </script>
