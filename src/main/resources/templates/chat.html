@@ -18,7 +18,7 @@
     </div>
     <div>
         <label>
-            <input type="checkbox" id="saveLog" />대화 기억하기
+            <input type="checkbox" id="saveLog" />대화 기억하기(체크 시점부터 기억)
         </label>
         <label>
             <input type="checkbox" id="resKor" />한글로 답변받기
@@ -44,12 +44,9 @@
     const sendBtn = document.getElementById("sendBtn");
     const saveLog = document.getElementById("saveLog");
     const resKor = document.getElementById("resKor");
-    const logList = [];
-    let evtSource = new EventSource(`/api/chat/stream`);
+    let logList = [];
 
     function eventClose() {
-        evtSource.close();
-        evtSource = new EventSource(`/api/chat/stream`);
         toggleSendBtn();
     }
 
@@ -83,6 +80,9 @@
 
     async function sendMsg() {
         if (myMsg.value.replaceAll(" ", "") != "") {
+            if (!saveLog.checked) {
+                logList = [];
+            }
             logList.push({
                 messageType: "user",
                 content: myMsg.value,
@@ -90,7 +90,7 @@
             addMsgBox(true, myMsg.value)
             toggleSendBtn();
 
-            fetch('/api/chat/generate', {
+            const response = await fetch('/api/chat/generate', {
                 method: "POST",
                 body: JSON.stringify({
                     chatObjectList: logList,
@@ -102,31 +102,32 @@
             const receivedMsg = addMsgBox(false, "Llama will respond soon...");
             myMsg.value = "";
 
-            let timeOut = null;
             let msgStr = "";
 
-            evtSource.onmessage = (e) => {
-                clearTimeout(timeOut);
-                timeOut = setTimeout(()=> {
-                    eventClose(evtSource);
-                    logList.push({
-                        messageType: "assistant",
-                        content: msgStr,
-                    });
-                    msgStr = "";
-                }, 5000);
-                const msgBox = receivedMsg;
-                const data = JSON.parse(e.data);
-                msgStr += converTag(data.result.output.content);
-                msgBox.innerHTML = `<md-block>${msgStr}</md-block>`;
-                if (data.result.metadata.finishReason != null) {
-                    clearTimeout(timeOut);
-                    eventClose(evtSource);
-                    logList.push({
-                        messageType: "assistant",
-                        content: msgStr,
-                    });
-                    msgStr = "";
+            const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+            let dataBuffer = '';
+            let index = 0;
+
+            while(true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                    eventClose();
+                    if (saveLog.checked) {
+                        logList.push({
+                            messageType: "assistant",
+                            content: msgStr,
+                        });
+                    }
+                    dataBuffer = '';
+                    msgStr = '';
+                    break;
+                }
+                dataBuffer += value;
+                const chunk = dataBuffer.split("\n\n")
+                if (chunk.length > index + 2) {
+                    const text = JSON.parse(`{${chunk[index++].replace("data:", '"data":')}}`).data.result.output.content;
+                    msgStr += converTag(text);
+                    receivedMsg.innerHTML = `<md-block>${msgStr}</md-block>`;
                 }
             }
         }
