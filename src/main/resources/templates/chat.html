@@ -80,14 +80,15 @@
 
     async function sendMsg() {
         if (myMsg.value.replaceAll(" ", "") != "") {
-            if (!saveLog.checked) {
-                logList = [];
-            }
             logList.push({
                 messageType: "user",
                 content: myMsg.value,
             });
+
             addMsgBox(true, myMsg.value)
+            const receivedMsg = addMsgBox(false, "Llama will respond soon...");
+            myMsg.value = "";
+
             toggleSendBtn();
 
             const response = await fetch('/api/chat/generate', {
@@ -99,8 +100,6 @@
                     "Content-Type": "application/json"
                 },
             })
-            const receivedMsg = addMsgBox(false, "Llama will respond soon...");
-            myMsg.value = "";
 
             let msgStr = "";
 
@@ -129,6 +128,9 @@
                     msgStr += converTag(text);
                     receivedMsg.innerHTML = `<md-block>${msgStr}</md-block>`;
                 }
+            }
+            if (!saveLog.checked) {
+                logList = [];
             }
         }
     }
