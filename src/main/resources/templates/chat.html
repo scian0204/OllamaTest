@@ -80,6 +80,9 @@
 
     async function sendMsg() {
         if (myMsg.value.replaceAll(" ", "") != "") {
+            if (!saveLog.checked) {
+                logList = [];
+            }
             logList.push({
                 messageType: "user",
                 content: myMsg.value,
